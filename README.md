@@ -1,47 +1,75 @@
 # ThreatGraph-RAG
 
-## Project Overview
+ThreatGraph-RAG is an evidence-grounded cyber threat intelligence system that combines **Knowledge Graphs, Retrieval-Augmented Generation (RAG), LLMs, MCP, and security guardrails**.
 
-**ThreatGraph-RAG** is an evidence-grounded Cyber Threat Intelligence (CTI) system that combines:
+The project uses public threat intelligence sources such as **MITRE ATT&CK** and **CISA Known Exploited Vulnerabilities (KEV)** to support structured threat analysis and evidence-backed question answering.
 
-- Large Language Models (LLMs)
-- Retrieval-Augmented Generation (RAG)
-- Knowledge Graphs
-- Hybrid Graph + Vector Retrieval
-- LLM-based Knowledge Extraction
-- Model Context Protocol (MCP)
-- Security Guardrails
-- Quantitative Evaluation
+## Goals
 
-The system integrates structured and unstructured cybersecurity information to answer threat-intelligence questions with traceable evidence.
+- Build a cyber threat intelligence knowledge graph
+- Implement vector-based RAG for semantic retrieval
+- Combine graph and vector retrieval using hybrid Graph-RAG
+- Generate source-grounded LLM responses
+- Extract entities and relationships from unstructured threat reports
+- Expose threat-intelligence capabilities through MCP tools
+- Add guardrails for prompt injection, unsupported claims, and unsafe requests
+- Compare Vector RAG, Graph Retrieval, and Hybrid Graph-RAG quantitatively
 
-The primary goal is not to build a generic cybersecurity chatbot.
-
-The goal is to investigate whether combining **graph-based retrieval with semantic vector retrieval** improves factual accuracy, multi-hop reasoning, and evidence grounding compared with traditional vector-only RAG.
-
----
-
-# 1. Motivation
-
-Cyber Threat Intelligence is distributed across heterogeneous sources such as:
-
-- MITRE ATT&CK
-- CISA Known Exploited Vulnerabilities (KEV)
-- CVE/NVD vulnerability descriptions
-- Security advisories
-- Threat reports
-
-These sources contain both structured relationships and large amounts of descriptive text.
-
-Traditional vector-based RAG is useful for semantic retrieval but may struggle with relationship-heavy questions such as:
-
-> Which ATT&CK techniques are used by APT29, and what mitigations exist for those techniques?
-
-Such a question requires explicit traversal between several entities:
+## Planned Architecture
 
 ```text
-Threat Group
-    ↓ USES
-Attack Technique
-    ↓ MITIGATED_BY
-Mitigation
+MITRE ATT&CK ──┐
+               ├── Knowledge Graph (Neo4j)
+CISA KEV ──────┘
+
+Threat Intelligence Text
+        │
+        └── Embeddings → Qdrant
+
+Neo4j + Qdrant
+      │
+      ↓
+Hybrid Graph-RAG
+      │
+      ↓
+     LLM
+      │
+      ↓
+Guardrails
+      │
+      ↓
+Evidence-grounded response
+
+        +
+    MCP Server
+
+Tech Stack
+Python
+Neo4j
+Qdrant
+Sentence Transformers
+LLM APIs / local LLMs
+Model Context Protocol (MCP)
+FastAPI
+Pydantic
+Pytest
+Data Sources
+MITRE ATT&CK
+CISA Known Exploited Vulnerabilities (KEV)
+Additional public threat intelligence reports
+Evaluation
+
+The project will compare:
+
+Vector RAG
+Knowledge Graph retrieval
+Hybrid Graph-RAG
+
+using metrics such as:
+
+Recall@K
+MRR
+Hit@K
+Answer correctness
+Faithfulness
+Citation accuracy
