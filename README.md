@@ -42,7 +42,7 @@ Evidence-grounded response
 
         +
     MCP Server
-
+```
 Tech Stack
 Python
 Neo4j
