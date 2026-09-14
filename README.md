@@ -43,33 +43,55 @@ Evidence-grounded response
         +
     MCP Server
 ```
-Tech Stack
+Tech Stack:
+
 Python
+
 Neo4j
+
 Qdrant
+
 Sentence Transformers
+
 LLM APIs / local LLMs
+
 Model Context Protocol (MCP)
+
 FastAPI
+
 Pydantic
+
 Pytest
+
 Data Sources
+
 MITRE ATT&CK
+
 CISA Known Exploited Vulnerabilities (KEV)
+
 Additional public threat intelligence reports
+
 Evaluation
 
 The project will compare:
 
+
 Vector RAG
+
 Knowledge Graph retrieval
+
 Hybrid Graph-RAG
 
 using metrics such as:
 
 Recall@K
+
 MRR
+
 Hit@K
+
 Answer correctness
+
 Faithfulness
+
 Citation accuracy
