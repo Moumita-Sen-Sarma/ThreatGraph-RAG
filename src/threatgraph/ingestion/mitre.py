@@ -10,6 +10,7 @@ from threatgraph.models.schema import (
     Mitigation,
     Software,
     ThreatGroup,
+    Campaign
 )
 
 
@@ -119,6 +120,18 @@ def parse_relationship(
     )
 
 
+def parse_campaign(obj: dict[str, Any]) -> Campaign:
+    """
+    Convert a STIX campaign object into our Campaign schema.
+    """
+    return Campaign(
+        stix_id=obj["id"],
+        name=obj["name"],
+        description=obj.get("description"),
+        aliases=obj.get("aliases", []),
+    )
+
+
 def load_mitre_objects(
     path: str | Path,
 ) -> dict[str, list]:
@@ -136,6 +149,7 @@ def load_mitre_objects(
     software: list[Software] = []
     mitigations: list[Mitigation] = []
     relationships: list[AttackRelationship] = []
+    campaigns: list[Campaign] = []
 
     for obj in bundle.get("objects", []):
         if is_revoked_or_deprecated(obj):
@@ -157,6 +171,8 @@ def load_mitre_objects(
 
         elif object_type == "relationship":
             relationships.append(parse_relationship(obj))
+        elif object_type == "campaign":
+            campaigns.append(parse_campaign(obj))
 
     return {
         "groups": groups,
@@ -164,4 +180,5 @@ def load_mitre_objects(
         "software": software,
         "mitigations": mitigations,
         "relationships": relationships,
+        "campaigns": campaigns,
     }

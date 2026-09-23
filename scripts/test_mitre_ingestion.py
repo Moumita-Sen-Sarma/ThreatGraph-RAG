@@ -15,6 +15,7 @@ def main() -> None:
     print(f"Software:      {len(data['software'])}")
     print(f"Mitigations:   {len(data['mitigations'])}")
     print(f"Relationships: {len(data['relationships'])}")
+    print(f"Campaigns:     {len(data['campaigns'])}")
 
     print("\nSample threat group")
     print("-" * 40)
@@ -42,6 +43,7 @@ def main() -> None:
     print("Source:", relationship.source_ref)
     print("Type:", relationship.relationship_type)
     print("Target:", relationship.target_ref)
+    
 
     entity_lookup = {}
 
@@ -56,6 +58,9 @@ def main() -> None:
 
     for mitigation in data["mitigations"]:
         entity_lookup[mitigation.stix_id] = mitigation
+    
+    for campaign in data["campaigns"]:
+        entity_lookup[campaign.stix_id] = campaign
 
     relationship = data["relationships"][0]
 

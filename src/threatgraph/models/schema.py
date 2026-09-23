@@ -9,6 +9,11 @@ class ThreatGroup(BaseModel):
     description: Optional[str] = None
     aliases: list[str] = Field(default_factory=list)
 
+class Campaign(BaseModel):
+    stix_id: str
+    name: str
+    description: Optional[str] = None
+    aliases: list[str] = Field(default_factory=list)
 
 class AttackTechnique(BaseModel):
     stix_id: str
