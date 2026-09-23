@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from threatgraph.models.schema import (
+    AttackRelationship,
     AttackTechnique,
     Mitigation,
     Software,
@@ -102,6 +103,21 @@ def parse_mitigation(obj: dict[str, Any]) -> Mitigation:
         description=obj.get("description"),
     )
 
+def parse_relationship(
+    obj: dict[str, Any]
+) -> AttackRelationship:
+    """
+    Convert a STIX relationship object into our
+    normalized AttackRelationship schema.
+    """
+    return AttackRelationship(
+        stix_id=obj["id"],
+        source_ref=obj["source_ref"],
+        target_ref=obj["target_ref"],
+        relationship_type=obj["relationship_type"],
+        description=obj.get("description"),
+    )
+
 
 def load_mitre_objects(
     path: str | Path,
@@ -119,6 +135,7 @@ def load_mitre_objects(
     techniques: list[AttackTechnique] = []
     software: list[Software] = []
     mitigations: list[Mitigation] = []
+    relationships: list[AttackRelationship] = []
 
     for obj in bundle.get("objects", []):
         if is_revoked_or_deprecated(obj):
@@ -138,9 +155,13 @@ def load_mitre_objects(
         elif object_type == "course-of-action":
             mitigations.append(parse_mitigation(obj))
 
+        elif object_type == "relationship":
+            relationships.append(parse_relationship(obj))
+
     return {
         "groups": groups,
         "techniques": techniques,
         "software": software,
         "mitigations": mitigations,
+        "relationships": relationships,
     }

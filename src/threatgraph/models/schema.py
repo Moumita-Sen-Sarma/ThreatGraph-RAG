@@ -30,3 +30,10 @@ class Mitigation(BaseModel):
     external_id: Optional[str] = None
     name: str
     description: Optional[str] = None
+
+class AttackRelationship(BaseModel):
+    stix_id: str
+    source_ref: str
+    target_ref: str
+    relationship_type: str
+    description: Optional[str] = None

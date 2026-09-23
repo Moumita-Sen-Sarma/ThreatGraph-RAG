@@ -1,6 +1,7 @@
 from threatgraph.ingestion.mitre import (
     get_external_id,
     is_revoked_or_deprecated,
+    parse_relationship
 )
 
 
@@ -45,3 +46,19 @@ def test_active_object() -> None:
     obj = {}
 
     assert is_revoked_or_deprecated(obj) is False
+
+def test_parse_relationship() -> None:
+    obj = {
+        "id": "relationship--123",
+        "source_ref": "intrusion-set--abc",
+        "target_ref": "attack-pattern--xyz",
+        "relationship_type": "uses",
+        "description": "Example relationship",
+    }
+
+    relationship = parse_relationship(obj)
+
+    assert relationship.stix_id == "relationship--123"
+    assert relationship.source_ref == "intrusion-set--abc"
+    assert relationship.target_ref == "attack-pattern--xyz"
+    assert relationship.relationship_type == "uses"
