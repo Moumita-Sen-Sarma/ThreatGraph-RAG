@@ -16,6 +16,8 @@ def main() -> None:
 
     builder = GraphBuilder(client)
 
+    builder.create_constraints()
+
     try:
         print("Creating threat groups...")
 
@@ -47,6 +49,30 @@ def main() -> None:
             builder.create_campaign(campaign)
 
         print("Node ingestion completed.")
+
+        print("Creating relationships...")
+
+        created_count = 0
+        skipped_count = 0
+
+        for relationship in data["relationships"]:
+            created = builder.create_relationship(
+                relationship
+            )
+
+            if created:
+                created_count += 1
+            else:
+                skipped_count += 1
+
+        print(
+            f"Relationships created: {created_count}"
+        )
+
+        print(
+            f"Relationships skipped/not created: "
+            f"{skipped_count}"
+        )
 
     finally:
         client.close()

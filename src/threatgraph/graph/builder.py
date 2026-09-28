@@ -5,8 +5,15 @@ from threatgraph.models.schema import (
     Mitigation,
     Software,
     ThreatGroup,
+    AttackRelationship
 )
 
+RELATIONSHIP_TYPE_MAP = {
+    "uses": "USES",
+    "mitigates": "MITIGATES",
+    "attributed-to": "ATTRIBUTED_TO",
+    "subtechnique-of": "SUBTECHNIQUE_OF",
+}
 
 class GraphBuilder:
     def __init__(self, client: Neo4jClient) -> None:
@@ -18,6 +25,7 @@ class GraphBuilder:
     ) -> None:
         query = """
         MERGE (g:ThreatGroup {stix_id: $stix_id})
+        SET g:CTIEntity
         SET
             g.name = $name,
             g.description = $description,
@@ -39,6 +47,7 @@ class GraphBuilder:
     ) -> None:
         query = """
         MERGE (t:AttackTechnique {stix_id: $stix_id})
+        SET t:CTIEntity
         SET
             t.external_id = $external_id,
             t.name = $name,
@@ -62,6 +71,7 @@ class GraphBuilder:
     ) -> None:
         query = """
         MERGE (s:Software {stix_id: $stix_id})
+        SET s:CTIEntity
         SET
             s.name = $name,
             s.description = $description,
@@ -83,6 +93,7 @@ class GraphBuilder:
     ) -> None:
         query = """
         MERGE (m:Mitigation {stix_id: $stix_id})
+        SET m:CTIEntity
         SET
             m.external_id = $external_id,
             m.name = $name,
@@ -104,6 +115,7 @@ class GraphBuilder:
     ) -> None:
         query = """
         MERGE (c:Campaign {stix_id: $stix_id})
+        SET c:CTIEntity
         SET
             c.name = $name,
             c.description = $description,
@@ -118,3 +130,47 @@ class GraphBuilder:
             aliases=campaign.aliases,
             database_=self.client.database,
         )
+    def create_constraints(self) -> None:
+        query = """
+        CREATE CONSTRAINT cti_stix_id_unique IF NOT EXISTS
+        FOR (n:CTIEntity)
+        REQUIRE n.stix_id IS UNIQUE
+        """
+
+        self.client.driver.execute_query(
+            query,
+            database_=self.client.database,
+        )
+
+    def create_relationship(
+        self,
+        relationship: AttackRelationship,
+    ) -> bool:
+        relation_type = RELATIONSHIP_TYPE_MAP.get(
+            relationship.relationship_type
+        )
+
+        if relation_type is None:
+            return False
+
+        query = f"""
+        MATCH (source:CTIEntity {{stix_id: $source_ref}})
+        MATCH (target:CTIEntity {{stix_id: $target_ref}})
+
+        MERGE (source)-[r:{relation_type}]->(target)
+
+        SET
+            r.stix_id = $stix_id,
+            r.description = $description
+        """
+
+        records, summary, keys = self.client.driver.execute_query(
+            query,
+            source_ref=relationship.source_ref,
+            target_ref=relationship.target_ref,
+            stix_id=relationship.stix_id,
+            description=relationship.description,
+            database_=self.client.database,
+        )
+
+        return summary.counters.relationships_created > 0
