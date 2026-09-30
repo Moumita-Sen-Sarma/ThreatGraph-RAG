@@ -8,6 +8,12 @@ from threatgraph.models.schema import (
     AttackRelationship
 )
 
+from threatgraph.models.schema import (
+    Product,
+    Vendor,
+    Vulnerability,
+)
+
 RELATIONSHIP_TYPE_MAP = {
     "uses": "USES",
     "mitigates": "MITIGATES",
@@ -174,3 +180,126 @@ class GraphBuilder:
         )
 
         return summary.counters.relationships_created > 0
+
+    def create_vendor(
+        self,
+        vendor: Vendor,
+    ) -> None:
+        query = """
+        MERGE (v:Vendor {name: $name})
+        SET v:CTIEntity
+        """
+
+        self.client.driver.execute_query(
+            query,
+            name=vendor.name,
+            database_=self.client.database,
+        )
+
+    def create_product(
+        self,
+        product: Product,
+    ) -> None:
+        query = """
+        MERGE (p:Product {
+            name: $name,
+            vendor: $vendor
+        })
+        SET p:CTIEntity
+        """
+
+        self.client.driver.execute_query(
+            query,
+            name=product.name,
+            vendor=product.vendor,
+            database_=self.client.database,
+        )
+
+    def create_vulnerability(
+        self,
+        vulnerability: Vulnerability,
+    ) -> None:
+        query = """
+        MERGE (
+            cve:Vulnerability {
+                cve_id: $cve_id
+            }
+        )
+
+        SET cve:CTIEntity
+
+        SET
+            cve.name = $cve_id,
+            cve.vulnerability_name =
+                $vulnerability_name,
+            cve.description = $description,
+            cve.date_added = $date_added,
+            cve.due_date = $due_date,
+            cve.required_action =
+                $required_action,
+            cve.known_ransomware_use =
+                $known_ransomware_use,
+            cve.notes = $notes
+        """
+
+        self.client.driver.execute_query(
+            query,
+            cve_id=vulnerability.cve_id,
+            vulnerability_name=(
+                vulnerability.vulnerability_name
+            ),
+            description=(
+                vulnerability.description
+            ),
+            date_added=(
+                vulnerability.date_added
+            ),
+            due_date=(
+                vulnerability.due_date
+            ),
+            required_action=(
+                vulnerability.required_action
+            ),
+            known_ransomware_use=(
+                vulnerability.known_ransomware_use
+            ),
+            notes=vulnerability.notes,
+            database_=self.client.database,
+        )
+
+    def connect_vulnerability(
+        self,
+        vulnerability: Vulnerability,
+    ) -> None:
+        query = """
+        MATCH (
+            cve:Vulnerability {
+                cve_id: $cve_id
+            }
+        )
+
+        MATCH (
+            p:Product {
+                name: $product,
+                vendor: $vendor
+            }
+        )
+
+        MATCH (
+            v:Vendor {
+                name: $vendor
+            }
+        )
+
+        MERGE (cve)-[:AFFECTS]->(p)
+
+        MERGE (p)-[:PRODUCED_BY]->(v)
+        """
+
+        self.client.driver.execute_query(
+            query,
+            cve_id=vulnerability.cve_id,
+            product=vulnerability.product,
+            vendor=vulnerability.vendor,
+            database_=self.client.database,
+        )

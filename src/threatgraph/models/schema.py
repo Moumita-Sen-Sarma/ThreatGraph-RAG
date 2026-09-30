@@ -42,3 +42,25 @@ class AttackRelationship(BaseModel):
     target_ref: str
     relationship_type: str
     description: Optional[str] = None
+
+class Vulnerability(BaseModel):
+    cve_id: str
+    vendor: str
+    product: str
+    vulnerability_name: str
+    description: Optional[str] = None
+    date_added: Optional[str] = None
+    due_date: Optional[str] = None
+    required_action: Optional[str] = None
+    known_ransomware_use: Optional[str] = None
+    notes: Optional[str] = None
+    source: str = "CISA KEV"
+
+
+class Vendor(BaseModel):
+    name: str
+
+
+class Product(BaseModel):
+    name: str
+    vendor: str
