@@ -64,3 +64,11 @@ class Vendor(BaseModel):
 class Product(BaseModel):
     name: str
     vendor: str
+
+class RetrievalDocument(BaseModel):
+    id: str
+    title: str
+    text: str
+    document_type: str
+    source: str
+    metadata: dict = Field(default_factory=dict)
