@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from threatgraph.llm.client import LLMClient
 from threatgraph.retrieval.graph import GraphRetriever
+from threatgraph.rag.entity_resolver import EntityResolver
 
 
 class GraphRAG:
@@ -20,10 +21,12 @@ class GraphRAG:
         retriever,
         llm,
         router: QueryRouter,
+        resolver,
     ) -> None:
         self.retriever = retriever
         self.llm = llm
         self.router = router
+        self.resolver = resolver
     
     def retrieve_group_techniques(
         self,
@@ -349,103 +352,196 @@ class GraphRAG:
         """
         Answer a natural-language graph question.
 
-        The router first determines what kind of
-        graph operation is required.
+        Steps:
+        1. Route the question.
+        2. Resolve graph entities.
+        3. Call the appropriate graph-RAG method.
+        4. Always return the route for debugging/evaluation.
         """
 
-        routed_query = self.router.route(
-            question
-        )
+        # Step 1: Understand the user's question.
+        routed_query = self.router.route(question)
 
-        if (
-            routed_query.intent
-            == "group_techniques"
-        ):
+        # Store this once so we can attach it to every result.
+        route_data = routed_query.model_dump()
+
+        # --------------------------------------------------
+        # GROUP -> TECHNIQUES
+        # --------------------------------------------------
+
+        if routed_query.intent == "group_techniques":
+
             if not routed_query.group_name:
                 return {
                     "answer": (
-                        "A threat group could not "
-                        "be identified."
+                        "A threat group could not be identified."
                     ),
-                    "route": routed_query.model_dump(),
+                    "graph_evidence": [],
+                    "route": route_data,
+                }
+
+            group = self.resolver.resolve(
+                routed_query.group_name,
+                expected_label="ThreatGroup",
+            )
+
+            if group is None:
+                return {
+                    "answer": (
+                        f"Could not resolve threat group "
+                        f"'{routed_query.group_name}'."
+                    ),
+                    "graph_evidence": [],
+                    "route": route_data,
                 }
 
             result = self.answer_group_techniques(
-                routed_query.group_name
+                group["name"]
             )
 
-        elif (
-            routed_query.intent
-            == "group_software"
-        ):
+        # --------------------------------------------------
+        # GROUP -> SOFTWARE
+        # --------------------------------------------------
+
+        elif routed_query.intent == "group_software":
+
             if not routed_query.group_name:
                 return {
                     "answer": (
-                        "A threat group could not "
-                        "be identified."
+                        "A threat group could not be identified."
                     ),
-                    "route": routed_query.model_dump(),
+                    "graph_evidence": [],
+                    "route": route_data,
+                }
+
+            group = self.resolver.resolve(
+                routed_query.group_name,
+                expected_label="ThreatGroup",
+            )
+
+            if group is None:
+                return {
+                    "answer": (
+                        f"Could not resolve threat group "
+                        f"'{routed_query.group_name}'."
+                    ),
+                    "graph_evidence": [],
+                    "route": route_data,
                 }
 
             result = self.answer_group_software(
-                routed_query.group_name
+                group["name"]
             )
 
-        elif (
-            routed_query.intent
-            == "technique_mitigations"
-        ):
+        # --------------------------------------------------
+        # TECHNIQUE -> MITIGATIONS
+        # --------------------------------------------------
+
+        elif routed_query.intent == "technique_mitigations":
+
             if not routed_query.technique:
                 return {
                     "answer": (
-                        "An attack technique could "
-                        "not be identified."
+                        "An attack technique could not be identified."
                     ),
-                    "route": routed_query.model_dump(),
+                    "graph_evidence": [],
+                    "route": route_data,
                 }
 
-            result = (
-                self.answer_technique_mitigations(
-                    routed_query.technique
-                )
+            technique = self.resolver.resolve(
+                routed_query.technique,
+                expected_label="AttackTechnique",
             )
+
+            if technique is None:
+                return {
+                    "answer": (
+                        f"Could not resolve attack technique "
+                        f"'{routed_query.technique}'."
+                    ),
+                    "graph_evidence": [],
+                    "route": route_data,
+                }
+
+            technique_value = (
+                technique.get("external_id")
+                or technique["name"]
+            )
+
+            result = self.answer_technique_mitigations(
+                technique_value
+            )
+
+        # --------------------------------------------------
+        # GROUP + TECHNIQUE -> MITIGATIONS
+        # --------------------------------------------------
 
         elif (
             routed_query.intent
             == "group_technique_mitigations"
         ):
+
             if (
                 not routed_query.group_name
                 or not routed_query.technique
             ):
                 return {
                     "answer": (
-                        "The required threat group "
-                        "or technique was not identified."
+                        "The required threat group or "
+                        "attack technique was not identified."
                     ),
-                    "route": routed_query.model_dump(),
+                    "graph_evidence": [],
+                    "route": route_data,
                 }
+
+            group = self.resolver.resolve(
+                routed_query.group_name,
+                expected_label="ThreatGroup",
+            )
+
+            technique = self.resolver.resolve(
+                routed_query.technique,
+                expected_label="AttackTechnique",
+            )
+
+            if group is None or technique is None:
+                return {
+                    "answer": (
+                        "Could not resolve the required "
+                        "threat group or attack technique."
+                    ),
+                    "graph_evidence": [],
+                    "route": route_data,
+                }
+
+            technique_value = (
+                technique.get("external_id")
+                or technique["name"]
+            )
 
             result = (
                 self.answer_group_technique_mitigations(
-                    routed_query.group_name,
-                    routed_query.technique,
+                    group["name"],
+                    technique_value,
                 )
             )
+
+        # --------------------------------------------------
+        # UNKNOWN QUESTION
+        # --------------------------------------------------
 
         else:
             return {
                 "answer": (
                     "This question is not currently "
-                    "supported by the graph retrieval "
-                    "system."
+                    "supported by the graph retrieval system."
                 ),
-                "route": routed_query.model_dump(),
                 "graph_evidence": [],
+                "route": route_data,
             }
 
-        result["route"] = (
-            routed_query.model_dump()
-        )
+        # Important:
+        # Add routing information to every successful result.
+        result["route"] = route_data
 
         return result

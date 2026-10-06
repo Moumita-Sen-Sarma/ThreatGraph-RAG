@@ -3,6 +3,7 @@ from threatgraph.llm.client import LLMClient
 from threatgraph.rag.graph_rag import GraphRAG
 from threatgraph.retrieval.graph import GraphRetriever
 from threatgraph.rag.router import QueryRouter
+from threatgraph.rag.entity_resolver import EntityResolver
 
 
 def main() -> None:
@@ -20,10 +21,15 @@ def main() -> None:
 
         router = QueryRouter(llm=llm)
 
+        resolver = EntityResolver(
+            retriever=retriever
+        )
+
         rag = GraphRAG(
             retriever=retriever,
             llm=llm,
-            router=router
+            router=router,
+            resolver=resolver
         )
 
         # result = (
@@ -88,8 +94,13 @@ def main() -> None:
         #         row["mitigation_id"],
         #         row["mitigation_name"],
         #     )
+        # question = (
+        #     "If APT29 performs Credential Dumping, "
+        #     "what mitigations should we apply?"
+        # )
+
         question = (
-            "If APT29 performs Credential Dumping, "
+            "If Cozy Bear performs credential dumping, "
             "what mitigations should we apply?"
         )
 
@@ -104,6 +115,7 @@ def main() -> None:
         print("\nROUTE")
         print("-" * 60)
         print(result["route"])
+        # print(result)
 
         print("\nANSWER")
         print("-" * 60)

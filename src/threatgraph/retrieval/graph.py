@@ -111,29 +111,55 @@ class GraphRetriever:
 
     def find_entity(
     self,
-    name: str,
+    value: str,
 ) -> list[dict]:
         """
-        Search CTI entities by name.
+        Search CTI entities using name, aliases,
+        ATT&CK external ID, or CVE ID.
         """
+
         query = """
         MATCH (n:CTIEntity)
-        WHERE toLower(n.name) CONTAINS toLower($name)
+
+        WHERE
+            toLower(n.name) CONTAINS toLower($value)
+
+            OR any(
+                alias IN coalesce(n.aliases, [])
+                WHERE toLower(alias) CONTAINS toLower($value)
+            )
+
+            OR (
+                n.external_id IS NOT NULL
+                AND toLower(n.external_id) = toLower($value)
+            )
+
+            OR (
+                n.cve_id IS NOT NULL
+                AND toLower(n.cve_id) = toLower($value)
+            )
+
         RETURN
             labels(n) AS labels,
             n.stix_id AS stix_id,
-            n.name AS name
-        ORDER BY n.name
+            n.external_id AS external_id,
+            n.cve_id AS cve_id,
+            n.name AS name,
+            n.aliases AS aliases
+
         LIMIT 20
         """
 
         records, _, _ = self.client.driver.execute_query(
             query,
-            name=name,
+            value=value,
             database_=self.client.database,
         )
 
-        return [record.data() for record in records]
+        return [
+            record.data()
+            for record in records
+        ]
 
     def get_group_technique_mitigations(
     self,

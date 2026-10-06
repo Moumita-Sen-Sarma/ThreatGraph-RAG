@@ -1,5 +1,6 @@
 from threatgraph.rag.graph_rag import GraphRAG
 from threatgraph.rag.query_models import GraphQuery
+from typing import Optional
 
 
 class FakeGraphRetriever:
@@ -51,12 +52,40 @@ class FakeRouter:
             technique=None,
         )
 
+class FakeResolver:
+    def resolve(
+        self,
+        value: str,
+        expected_label: Optional[str] = None,
+    ) -> Optional[dict]:
+
+        if expected_label == "ThreatGroup":
+            return {
+                "labels": ["CTIEntity", "ThreatGroup"],
+                "stix_id": "intrusion-set--123",
+                "external_id": None,
+                "name": "APT29",
+                "aliases": ["Cozy Bear"],
+            }
+
+        if expected_label == "AttackTechnique":
+            return {
+                "labels": ["CTIEntity", "AttackTechnique"],
+                "stix_id": "attack-pattern--123",
+                "external_id": "T1003",
+                "name": "OS Credential Dumping",
+                "aliases": [],
+            }
+
+        return None
+
 def test_graph_rag_group_techniques():
 
     rag = GraphRAG(
         retriever=FakeGraphRetriever(),
         llm=FakeLLM(),
-        router=FakeRouter()
+        router=FakeRouter(),
+        resolver=FakeResolver()
     )
 
     result = (

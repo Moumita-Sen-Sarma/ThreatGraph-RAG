@@ -193,6 +193,6 @@ def test_find_entity():
     )
 
     assert (
-        client.driver.last_parameters["name"]
+        client.driver.last_parameters["value"]
         == "credential dumping"
     )
