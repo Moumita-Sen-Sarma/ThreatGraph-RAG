@@ -17,11 +17,13 @@ class GraphRAG:
 
     def __init__(
         self,
-        retriever: GraphRetriever,
-        llm: LLMClient,
+        retriever,
+        llm,
+        router: QueryRouter,
     ) -> None:
         self.retriever = retriever
         self.llm = llm
+        self.router = router
     
     def retrieve_group_techniques(
         self,
@@ -255,3 +257,195 @@ class GraphRAG:
             "answer": answer,
             "graph_evidence": rows,
         }
+
+
+    def answer_group_technique_mitigations(
+    self,
+    group_name: str,
+    technique: str,
+) -> dict:
+        """
+        Answer a multi-hop question about mitigations
+        for a technique used by a threat group.
+        """
+
+        rows = (
+            self.retriever
+            .get_group_technique_mitigations(
+                group_name,
+                technique,
+            )
+        )
+
+        if rows:
+            evidence_lines = []
+
+            for row in rows:
+                evidence_lines.append(
+                    (
+                        f"- {row['group_name']} USES "
+                        f"{row['used_technique_id']} "
+                        f"{row['used_technique_name']}; "
+                        f"{row['mitigation_id']} "
+                        f"{row['mitigation_name']} "
+                        f"MITIGATES that technique."
+                    )
+                )
+
+            context = "\n".join(evidence_lines)
+
+        else:
+            context = (
+                "No matching graph evidence was found."
+            )
+
+        instructions = """
+    You are ThreatGraph, a defensive cyber threat
+    intelligence assistant.
+
+    Use ONLY the graph evidence supplied.
+
+    Rules:
+    1. Do not invent relationships.
+    2. Do not recommend mitigations that are not
+    present in the graph evidence.
+    3. Preserve MITRE ATT&CK IDs.
+    4. If evidence is missing, clearly say so.
+    5. Be concise and factual.
+    """
+
+        prompt = f"""
+    QUESTION:
+
+    If {group_name} uses {technique},
+    what mitigations are associated with that
+    technique?
+
+
+    GRAPH EVIDENCE:
+
+    {context}
+
+
+    Provide an evidence-grounded answer.
+    """
+
+        answer = self.llm.generate(
+            instructions=instructions,
+            prompt=prompt,
+        )
+
+        return {
+            "question" : prompt, 
+            "answer": answer,
+            "graph_evidence": rows,
+        }
+
+    
+    def answer(
+    self,
+    question: str,
+) -> dict:
+        """
+        Answer a natural-language graph question.
+
+        The router first determines what kind of
+        graph operation is required.
+        """
+
+        routed_query = self.router.route(
+            question
+        )
+
+        if (
+            routed_query.intent
+            == "group_techniques"
+        ):
+            if not routed_query.group_name:
+                return {
+                    "answer": (
+                        "A threat group could not "
+                        "be identified."
+                    ),
+                    "route": routed_query.model_dump(),
+                }
+
+            result = self.answer_group_techniques(
+                routed_query.group_name
+            )
+
+        elif (
+            routed_query.intent
+            == "group_software"
+        ):
+            if not routed_query.group_name:
+                return {
+                    "answer": (
+                        "A threat group could not "
+                        "be identified."
+                    ),
+                    "route": routed_query.model_dump(),
+                }
+
+            result = self.answer_group_software(
+                routed_query.group_name
+            )
+
+        elif (
+            routed_query.intent
+            == "technique_mitigations"
+        ):
+            if not routed_query.technique:
+                return {
+                    "answer": (
+                        "An attack technique could "
+                        "not be identified."
+                    ),
+                    "route": routed_query.model_dump(),
+                }
+
+            result = (
+                self.answer_technique_mitigations(
+                    routed_query.technique
+                )
+            )
+
+        elif (
+            routed_query.intent
+            == "group_technique_mitigations"
+        ):
+            if (
+                not routed_query.group_name
+                or not routed_query.technique
+            ):
+                return {
+                    "answer": (
+                        "The required threat group "
+                        "or technique was not identified."
+                    ),
+                    "route": routed_query.model_dump(),
+                }
+
+            result = (
+                self.answer_group_technique_mitigations(
+                    routed_query.group_name,
+                    routed_query.technique,
+                )
+            )
+
+        else:
+            return {
+                "answer": (
+                    "This question is not currently "
+                    "supported by the graph retrieval "
+                    "system."
+                ),
+                "route": routed_query.model_dump(),
+                "graph_evidence": [],
+            }
+
+        result["route"] = (
+            routed_query.model_dump()
+        )
+
+        return result

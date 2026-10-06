@@ -1,4 +1,5 @@
 from threatgraph.rag.graph_rag import GraphRAG
+from threatgraph.rag.query_models import GraphQuery
 
 
 class FakeGraphRetriever:
@@ -38,11 +39,24 @@ class FakeLLM:
         )
 
 
+
+class FakeRouter:
+    def route(
+        self,
+        question: str,
+    ) -> GraphQuery:
+        return GraphQuery(
+            intent="group_techniques",
+            group_name="APT29",
+            technique=None,
+        )
+
 def test_graph_rag_group_techniques():
 
     rag = GraphRAG(
         retriever=FakeGraphRetriever(),
         llm=FakeLLM(),
+        router=FakeRouter()
     )
 
     result = (

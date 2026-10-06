@@ -62,6 +62,52 @@ def main() -> None:
                 item["technique_id"],
                 item["technique_name"],
             )
+        
+        print("\nAPT29 + Credential Dumping mitigations")
+        print("-" * 60)
+
+        results = retriever.get_group_technique_mitigations(
+            "APT29",
+            "Credential Dumping",
+        )
+
+        for row in results:
+            print(
+                row["used_technique_id"],
+                row["used_technique_name"],
+                "->",
+                row["mitigation_id"],
+                row["mitigation_name"],
+            )
+        
+        print("\nAPT29 mitigations")
+        print("-" * 60)
+
+        results = retriever.get_group_mitigations(
+            "APT29"
+        )
+
+        for row in results[:20]:
+            print(
+                row["technique_id"],
+                "->",
+                row["mitigation_id"],
+                row["mitigation_name"],
+            )
+
+        print("\nShared techniques: APT29 vs FIN7")
+        print("-" * 60)
+
+        results = retriever.get_shared_techniques(
+            "APT29",
+            "FIN7",
+        )
+
+        for row in results:
+            print(
+                row["technique_id"],
+                row["technique_name"],
+            )
 
     finally:
         client.close()
