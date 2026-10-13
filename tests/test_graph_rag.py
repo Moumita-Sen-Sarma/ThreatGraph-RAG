@@ -48,7 +48,7 @@ class FakeRouter:
     ) -> GraphQuery:
         return GraphQuery(
             intent="group_techniques",
-            group_name="APT29",
+            group_name="Cozy Bear",
             technique=None,
         )
 
@@ -95,6 +95,35 @@ def test_graph_rag_group_techniques():
     )
 
     assert "T1003" in result["answer"]
+
+    assert len(
+        result["graph_evidence"]
+    ) == 1
+
+def test_graph_rag_natural_language_answer():
+
+    rag = GraphRAG(
+        retriever=FakeGraphRetriever(),
+        llm=FakeLLM(),
+        router=FakeRouter(),
+        resolver=FakeResolver(),
+    )
+
+    result = rag.answer(
+        "What attack techniques does Cozy Bear use?"
+    )
+
+    assert "T1003" in result["answer"]
+
+    assert (
+        result["route"]["intent"]
+        == "group_techniques"
+    )
+
+    assert (
+        result["route"]["group_name"]
+        == "Cozy Bear"
+    )
 
     assert len(
         result["graph_evidence"]

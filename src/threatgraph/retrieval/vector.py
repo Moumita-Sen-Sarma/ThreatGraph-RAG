@@ -31,7 +31,7 @@ class VectorRetriever:
         )
 
         self.vector_size = (
-            self.model.get_sentence_embedding_dimension()
+            self.model.get_embedding_dimension()
         )
 
     def create_collection(self) -> None:

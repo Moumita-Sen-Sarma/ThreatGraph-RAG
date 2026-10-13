@@ -39,3 +39,5 @@ def test_technique_to_document():
     assert "T1003" in document.text
 
     assert "Windows" in document.text
+
+    

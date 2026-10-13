@@ -3,6 +3,7 @@ from __future__ import annotations
 from threatgraph.llm.client import LLMClient
 from threatgraph.retrieval.graph import GraphRetriever
 from threatgraph.rag.entity_resolver import EntityResolver
+from threatgraph.rag.router import QueryRouter
 
 
 class GraphRAG:
@@ -545,3 +546,256 @@ class GraphRAG:
         result["route"] = route_data
 
         return result
+
+    
+    def retrieve(
+    self,
+    question: str,
+) -> dict:
+        """
+        Convert a natural-language question into
+        structured graph evidence without calling the LLM.
+
+        Pipeline:
+            question
+            -> router
+            -> entity resolution
+            -> Neo4j retrieval
+        """
+
+        # ---------------------------------------
+        # 1. Understand the user's question
+        # ---------------------------------------
+
+        routed_query = self.router.route(
+            question
+        )
+
+        route_data = routed_query.model_dump()
+
+        # ---------------------------------------
+        # 2. GROUP -> TECHNIQUES
+        # ---------------------------------------
+
+        if routed_query.intent == "group_techniques":
+
+            if not routed_query.group_name:
+                return {
+                    "route": route_data,
+                    "resolved_entities": {},
+                    "graph_evidence": [],
+                    "error": (
+                        "No threat group was identified."
+                    ),
+                }
+
+            group = self.resolver.resolve(
+                routed_query.group_name,
+                expected_label="ThreatGroup",
+            )
+
+            if group is None:
+                return {
+                    "route": route_data,
+                    "resolved_entities": {},
+                    "graph_evidence": [],
+                    "error": (
+                        f"Could not resolve threat group "
+                        f"'{routed_query.group_name}'."
+                    ),
+                }
+
+            rows = self.retriever.get_group_techniques(
+                group["name"]
+            )
+
+            return {
+                "route": route_data,
+                "resolved_entities": {
+                    "group": group,
+                },
+                "graph_evidence": rows,
+                "error": None,
+            }
+
+        # ---------------------------------------
+        # 3. GROUP -> SOFTWARE
+        # ---------------------------------------
+
+        if routed_query.intent == "group_software":
+
+            if not routed_query.group_name:
+                return {
+                    "route": route_data,
+                    "resolved_entities": {},
+                    "graph_evidence": [],
+                    "error": (
+                        "No threat group was identified."
+                    ),
+                }
+
+            group = self.resolver.resolve(
+                routed_query.group_name,
+                expected_label="ThreatGroup",
+            )
+
+            if group is None:
+                return {
+                    "route": route_data,
+                    "resolved_entities": {},
+                    "graph_evidence": [],
+                    "error": (
+                        f"Could not resolve threat group "
+                        f"'{routed_query.group_name}'."
+                    ),
+                }
+
+            rows = self.retriever.get_group_software(
+                group["name"]
+            )
+
+            return {
+                "route": route_data,
+                "resolved_entities": {
+                    "group": group,
+                },
+                "graph_evidence": rows,
+                "error": None,
+            }
+
+        # ---------------------------------------
+        # 4. TECHNIQUE -> MITIGATIONS
+        # ---------------------------------------
+
+        if (
+            routed_query.intent
+            == "technique_mitigations"
+        ):
+
+            if not routed_query.technique:
+                return {
+                    "route": route_data,
+                    "resolved_entities": {},
+                    "graph_evidence": [],
+                    "error": (
+                        "No attack technique was identified."
+                    ),
+                }
+
+            technique = self.resolver.resolve(
+                routed_query.technique,
+                expected_label="AttackTechnique",
+            )
+
+            if technique is None:
+                return {
+                    "route": route_data,
+                    "resolved_entities": {},
+                    "graph_evidence": [],
+                    "error": (
+                        f"Could not resolve attack technique "
+                        f"'{routed_query.technique}'."
+                    ),
+                }
+
+            technique_value = (
+                technique.get("external_id")
+                or technique["name"]
+            )
+
+            rows = (
+                self.retriever
+                .get_technique_mitigations(
+                    technique_value
+                )
+            )
+
+            return {
+                "route": route_data,
+                "resolved_entities": {
+                    "technique": technique,
+                },
+                "graph_evidence": rows,
+                "error": None,
+            }
+
+        # ---------------------------------------
+        # 5. GROUP + TECHNIQUE -> MITIGATIONS
+        # ---------------------------------------
+
+        if (
+            routed_query.intent
+            == "group_technique_mitigations"
+        ):
+
+            if (
+                not routed_query.group_name
+                or not routed_query.technique
+            ):
+                return {
+                    "route": route_data,
+                    "resolved_entities": {},
+                    "graph_evidence": [],
+                    "error": (
+                        "The required threat group or "
+                        "technique was not identified."
+                    ),
+                }
+
+            group = self.resolver.resolve(
+                routed_query.group_name,
+                expected_label="ThreatGroup",
+            )
+
+            technique = self.resolver.resolve(
+                routed_query.technique,
+                expected_label="AttackTechnique",
+            )
+
+            if group is None or technique is None:
+                return {
+                    "route": route_data,
+                    "resolved_entities": {},
+                    "graph_evidence": [],
+                    "error": (
+                        "Could not resolve the required "
+                        "threat group or attack technique."
+                    ),
+                }
+
+            technique_value = (
+                technique.get("external_id")
+                or technique["name"]
+            )
+
+            rows = (
+                self.retriever
+                .get_group_technique_mitigations(
+                    group["name"],
+                    technique_value,
+                )
+            )
+
+            return {
+                "route": route_data,
+                "resolved_entities": {
+                    "group": group,
+                    "technique": technique,
+                },
+                "graph_evidence": rows,
+                "error": None,
+            }
+
+        # ---------------------------------------
+        # 6. Unsupported question
+        # ---------------------------------------
+
+        return {
+            "route": route_data,
+            "resolved_entities": {},
+            "graph_evidence": [],
+            "error": (
+                "This question is not currently "
+                "supported by graph retrieval."
+            ),
+        }
