@@ -21,6 +21,13 @@ from threatgraph.rag.citations import (
     CitationValidator,
 )
 
+from threatgraph.guardrails.output import (
+    OutputGroundingGuardrail,
+)
+from threatgraph.guardrails.retrieval import (
+    RetrievalGuardrail,
+)
+
 
 def main() -> None:
 
@@ -68,9 +75,19 @@ def main() -> None:
         provenance = ProvenanceNormalizer()
 
         citation_validator = CitationValidator()
+
+        output_guardrail = (
+            OutputGroundingGuardrail()
+        )
+
+        retrieval_guardrail = (
+            RetrievalGuardrail()
+        )
         # -----------------------------
         # Graph-RAG
         # -----------------------------
+
+
 
         graph_rag = GraphRAG(
             retriever=graph_retriever,
@@ -89,9 +106,10 @@ def main() -> None:
             llm=llm,
             fusion=fusion,
             provenance=provenance,
-            validator=(
-                citation_validator
-            ),
+            validator=citation_validator,
+            output_guardrail= output_guardrail,
+            retrieval_guardrail=retrieval_guardrail,
+            
         )
 
         question = (
@@ -119,6 +137,14 @@ def main() -> None:
             result["resolved_entities"]
         )
 
+        print("\nRESOLUTION EVIDENCE")
+        print("-" * 60)
+
+        for item in result["resolution_evidence"]:
+            print(
+                item["evidence_id"],
+                item["data"],
+            )
 
         print("\nFUSION SUMMARY")
         print("-" * 60)
@@ -149,7 +175,17 @@ def main() -> None:
                 ]
             ),
         )
+        print("\nRETRIEVAL GUARDRAIL")
+        print("-" * 60)
 
+        print(
+            "Flagged vector documents:",
+            len(
+                result[
+                    "flagged_vector_evidence"
+                ]
+            ),
+        )
         print(
             "Fused vector evidence:",
             len(
@@ -191,6 +227,23 @@ def main() -> None:
 
         print(
             result["citation_validation"]
+        )
+        print("\nOUTPUT GROUNDING")
+        print("-" * 60)
+
+        print(
+            "Status:",
+            result["grounding_status"],
+        )
+
+        print(
+            "Repair attempted:",
+            result["repair_attempted"],
+        )
+
+        print(
+            "Citation validation:",
+            result["citation_validation"],
         )
 
     finally:
