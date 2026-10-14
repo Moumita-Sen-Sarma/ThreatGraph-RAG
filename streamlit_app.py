@@ -90,12 +90,12 @@ question = st.text_area(
     height=100,
 )
 
-top_k = st.slider(
-    "Vector evidence to retrieve",
-    min_value=1,
-    max_value=10,
-    value=5,
-)
+# top_k = st.slider(
+#     "Vector evidence to retrieve",
+#     min_value=1,
+#     max_value=10,
+#     value=5,
+# )
 
 
 # --------------------------------------------------
@@ -125,7 +125,7 @@ if st.button(
 
                 result = rag.answer(
                     question.strip(),
-                    top_k=top_k,
+                    # top_k=top_k,
                 )
 
             except Exception as exc:
