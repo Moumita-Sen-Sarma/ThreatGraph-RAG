@@ -130,7 +130,6 @@ class GraphRetriever:
                 alias IN coalesce(n.aliases, [])
                 WHERE
                     toLower(alias) CONTAINS toLower($value)
-                    OR toLower($value) CONTAINS toLower(alias)
             )
 
             OR (
