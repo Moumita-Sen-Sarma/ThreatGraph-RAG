@@ -8,6 +8,7 @@ authors = [
 ]
 requires-python = ">=3.11"
 dependencies = [
+    "fastapi>=0.143.0",
     "httpx>=0.28.1",
     "mcp[cli]>=2.3.0",
     "neo4j>=5.28.5",
@@ -19,6 +20,8 @@ dependencies = [
     "ruff>=0.16.7",
     "sentence-transformers>=5.1.2",
     "stix2>=3.0.1",
+    "streamlit>=1.65.0",
+    "uvicorn>=0.54.0",
 ]
 
 [project.scripts]

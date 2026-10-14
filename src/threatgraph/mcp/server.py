@@ -29,6 +29,10 @@ from threatgraph.guardrails.output import (
 from threatgraph.guardrails.retrieval import (
     RetrievalGuardrail,
 )
+from threatgraph.retrieval.bootstrap import (
+    ensure_vector_index,
+)
+
 
 
 mcp = MCPServer(
@@ -61,6 +65,10 @@ def get_vector_retriever() -> VectorRetriever:
 
     if _vector_retriever is None:
         _vector_retriever = VectorRetriever()
+
+        ensure_vector_index(
+            _vector_retriever
+        )
 
     return _vector_retriever
 

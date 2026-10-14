@@ -24,3 +24,5 @@ data/processed/
 # Logs
 *.log
 .qdrant/
+
+.streamlit/secrets.toml
