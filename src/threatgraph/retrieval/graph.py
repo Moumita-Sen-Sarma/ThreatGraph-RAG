@@ -124,9 +124,13 @@ class GraphRetriever:
         WHERE
             toLower(n.name) CONTAINS toLower($value)
 
+            OR toLower($value) CONTAINS toLower(n.name)
+
             OR any(
                 alias IN coalesce(n.aliases, [])
-                WHERE toLower(alias) CONTAINS toLower($value)
+                WHERE
+                    toLower(alias) CONTAINS toLower($value)
+                    OR toLower($value) CONTAINS toLower(alias)
             )
 
             OR (
