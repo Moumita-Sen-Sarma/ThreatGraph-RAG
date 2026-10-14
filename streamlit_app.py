@@ -68,12 +68,12 @@ def load_threatgraph():
 # 4. Header
 # --------------------------------------------------
 
-st.title("ThreatGraph")
+st.title("ThreatGraph: Hybrid RAG for Knowledge-Grounded Cyber Threat Intelligence")
 
 st.caption(
-    "Evidence-grounded cyber threat intelligence "
-    "using Knowledge Graphs, vector retrieval, "
-    "Hybrid RAG, and provenance."
+    "Answers cyber threat intelligence questions using Hybrid RAG" 
+    "that combines Knowledge Graphs and vector retrieval, with "
+    "provenance for traceable, grounded responses."
 )
 
 
