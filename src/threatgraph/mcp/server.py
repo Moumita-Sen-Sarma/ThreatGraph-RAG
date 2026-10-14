@@ -4,6 +4,12 @@ from mcp.server import MCPServer
 
 from threatgraph.graph.client import Neo4jClient
 from threatgraph.retrieval.graph import GraphRetriever
+from threatgraph.retrieval.vector import (
+    VectorRetriever,
+)
+from threatgraph.rag.entity_resolver import (
+    EntityResolver,
+)
 
 
 mcp = MCPServer(
@@ -16,6 +22,28 @@ graph_retriever = GraphRetriever(
     neo4j_client
 )
 
+entity_resolver = EntityResolver(
+    retriever=graph_retriever
+)
+
+# vector_retriever = VectorRetriever()
+_vector_retriever: VectorRetriever | None = None
+
+
+def get_vector_retriever() -> VectorRetriever:
+    """
+    Lazily initialize the vector retriever.
+
+    The embedding model is loaded only when
+    vector search is used for the first time.
+    """
+
+    global _vector_retriever
+
+    if _vector_retriever is None:
+        _vector_retriever = VectorRetriever()
+
+    return _vector_retriever
 
 @mcp.tool()
 def health() -> dict:
@@ -71,4 +99,47 @@ def find_group_mitigations(
         "group_name": group_name,
         "mitigations": results,
         "count": len(results),
+    }
+
+@mcp.tool()
+def search_evidence(
+    query: str,
+    top_k: int = 5,
+) -> dict:
+    """
+    Search ThreatGraph's vector index for
+    semantically relevant cyber-threat
+    intelligence evidence.
+    """
+
+    retriever = get_vector_retriever()
+
+    results = retriever.search(
+        query,
+        top_k=top_k,
+    )
+
+    return {
+        "query": query,
+        "results": results,
+        "count": len(results),
+    }
+
+@mcp.tool()
+def lookup_entity(
+    value: str,
+) -> dict:
+    """
+    Resolve a threat-intelligence name, alias,
+    ATT&CK ID, or CVE to a canonical entity.
+    """
+
+    matches = graph_retriever.find_entity(
+        value
+    )
+
+    return {
+        "query": value,
+        "matches": matches,
+        "count": len(matches),
     }
