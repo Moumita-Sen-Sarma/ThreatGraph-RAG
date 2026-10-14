@@ -27,6 +27,23 @@ class FakeRetriever:
                     ],
                 }
             ]
+        if value.lower() == "security account manager":
+            return [
+                {
+                    "labels": [
+                        "CTIEntity",
+                        "AttackTechnique",
+                    ],
+                    "stix_id":
+                        "attack-pattern--456",
+                    "external_id": "T1003.002",
+                    "cve_id": None,
+                    "name":
+                        "Security Account Manager",
+                    "aliases": [],
+                }
+            ]
+        
 
         return []
 
@@ -44,3 +61,29 @@ def test_resolve_alias():
     assert result is not None
 
     assert result["name"] == "APT29"
+
+def test_resolve_hierarchical_technique_name():
+
+    resolver = EntityResolver(
+        FakeRetriever()
+    )
+
+    result = resolver.resolve(
+        (
+            "OS Credential Dumping: "
+            "Security Account Manager"
+        ),
+        expected_label="AttackTechnique",
+    )
+
+    assert result is not None
+
+    assert (
+        result["name"]
+        == "Security Account Manager"
+    )
+
+    assert (
+        result["external_id"]
+        == "T1003.002"
+    )

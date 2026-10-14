@@ -20,7 +20,7 @@ class EntityResolver:
         self,
         value: str,
         expected_label: Optional[str] = None,
-    ) -> Optional[dict]: 
+    ) -> Optional[dict]:
         """
         Resolve a user-provided string to one
         canonical graph entity.
@@ -29,6 +29,32 @@ class EntityResolver:
         candidates = self.retriever.find_entity(
             value
         )
+
+        # Handle hierarchical ATT&CK names such as:
+        #
+        # OS Credential Dumping:
+        # Security Account Manager
+        #
+        # If the full string does not resolve,
+        # try the most specific component first.
+        if not candidates and ":" in value:
+
+            parts = [
+                part.strip()
+                for part in value.split(":")
+                if part.strip()
+            ]
+
+            for candidate_value in reversed(parts):
+
+                candidates = (
+                    self.retriever.find_entity(
+                        candidate_value
+                    )
+                )
+
+                if candidates:
+                    break
 
         if not candidates:
             return None
@@ -44,5 +70,4 @@ class EntityResolver:
         if not candidates:
             return None
 
-        # For now, return the first matching entity.
         return candidates[0]
