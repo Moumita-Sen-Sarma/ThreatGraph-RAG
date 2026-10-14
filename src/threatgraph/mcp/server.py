@@ -10,6 +10,25 @@ from threatgraph.retrieval.vector import (
 from threatgraph.rag.entity_resolver import (
     EntityResolver,
 )
+from threatgraph.llm.client import LLMClient
+
+from threatgraph.rag.router import QueryRouter
+from threatgraph.rag.graph_rag import GraphRAG
+from threatgraph.rag.hybrid_rag import HybridRAG
+from threatgraph.rag.fusion import EvidenceFusion
+from threatgraph.rag.provenance import (
+    ProvenanceNormalizer,
+)
+from threatgraph.rag.citations import (
+    CitationValidator,
+)
+
+from threatgraph.guardrails.output import (
+    OutputGroundingGuardrail,
+)
+from threatgraph.guardrails.retrieval import (
+    RetrievalGuardrail,
+)
 
 
 mcp = MCPServer(
@@ -44,6 +63,76 @@ def get_vector_retriever() -> VectorRetriever:
         _vector_retriever = VectorRetriever()
 
     return _vector_retriever
+
+
+_hybrid_rag: HybridRAG | None = None
+
+
+def get_hybrid_rag() -> HybridRAG:
+    """
+    Lazily initialize the full ThreatGraph
+    Hybrid RAG pipeline.
+    """
+
+    global _hybrid_rag
+
+    if _hybrid_rag is None:
+
+        llm = LLMClient()
+
+        router = QueryRouter(
+            llm=llm
+        )
+
+        resolver = EntityResolver(
+            retriever=graph_retriever
+        )
+
+        graph_rag = GraphRAG(
+            retriever=graph_retriever,
+            llm=llm,
+            router=router,
+            resolver=resolver,
+        )
+
+        fusion = EvidenceFusion(
+            min_vector_score=0.40
+        )
+
+        provenance = (
+            ProvenanceNormalizer()
+        )
+
+        validator = CitationValidator()
+
+        output_guardrail = (
+            OutputGroundingGuardrail()
+        )
+
+        retrieval_guardrail = (
+            RetrievalGuardrail()
+        )
+
+        _hybrid_rag = HybridRAG(
+            graph_rag=graph_rag,
+            vector_retriever=(
+                get_vector_retriever()
+            ),
+            llm=llm,
+            fusion=fusion,
+            provenance=provenance,
+            validator=validator,
+            output_guardrail=(
+                output_guardrail
+            ),
+            retrieval_guardrail=(
+                retrieval_guardrail
+            ),
+        )
+
+    return _hybrid_rag
+
+
 
 @mcp.tool()
 def health() -> dict:
@@ -142,4 +231,48 @@ def lookup_entity(
         "query": value,
         "matches": matches,
         "count": len(matches),
+    }
+
+@mcp.tool()
+def ask_threatgraph(
+    question: str,
+    top_k: int = 5,
+) -> dict:
+    """
+    Answer a cyber-threat intelligence question
+    using ThreatGraph's full Hybrid RAG pipeline.
+    """
+
+    rag = get_hybrid_rag()
+
+    result = rag.answer(
+        question,
+        top_k=top_k,
+    )
+
+    return {
+        "question": result["question"],
+        "answer": result["answer"],
+        "route": result["route"],
+        "resolved_entities": (
+            result["resolved_entities"]
+        ),
+        "resolution_evidence": (
+            result["resolution_evidence"]
+        ),
+        "graph_evidence": (
+            result["graph_evidence"]
+        ),
+        "vector_evidence": (
+            result["vector_evidence"]
+        ),
+        "citation_validation": (
+            result["citation_validation"]
+        ),
+        "grounding_status": (
+            result["grounding_status"]
+        ),
+        "repair_attempted": (
+            result["repair_attempted"]
+        ),
     }
