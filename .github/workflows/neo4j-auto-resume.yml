@@ -1,3 +1,4 @@
+
 name: Neo4j Aura Auto Resume
 
 on:
@@ -8,6 +9,7 @@ on:
 jobs:
   resume-neo4j:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - name: Check and resume Neo4j Aura
@@ -58,4 +60,55 @@ jobs:
               print("Resume request accepted.")
           else:
               print("No resume action needed.")
+          PY
+
+      - name: Install Neo4j Driver
+        run: pip install neo4j
+
+      - name: Verify Neo4j Connectivity
+        env:
+          NEO4J_URI: ${{ secrets.NEO4J_URI }}
+          NEO4J_USERNAME: ${{ secrets.NEO4J_USERNAME }}
+          NEO4J_PASSWORD: ${{ secrets.NEO4J_PASSWORD }}
+          NEO4J_DATABASE: ${{ secrets.NEO4J_DATABASE }}
+        run: |
+          python3 - <<'PY'
+          import os
+          import time
+          from neo4j import GraphDatabase
+
+          uri = os.environ["NEO4J_URI"]
+          user = os.environ["NEO4J_USERNAME"]
+          password = os.environ["NEO4J_PASSWORD"]
+          database = os.environ["NEO4J_DATABASE"]
+
+          for attempt in range(1, 13):
+              try:
+                  with GraphDatabase.driver(
+                      uri,
+                      auth=(user, password),
+                      connection_timeout=10
+                  ) as driver:
+                      with driver.session(
+                          database=database
+                      ) as session:
+                          result = session.run(
+                              "RETURN 1 AS health_check"
+                          ).single()
+
+                          assert result["health_check"] == 1
+
+                  print("Neo4j connectivity verified!")
+                  break
+
+              except Exception as e:
+                  print(
+                      f"Attempt {attempt}/12 failed: "
+                      f"{type(e).__name__}"
+                  )
+
+                  if attempt == 12:
+                      raise
+
+                  time.sleep(30)
           PY
