@@ -1,0 +1,61 @@
+name: Neo4j Aura Auto Resume
+
+on:
+  schedule:
+    - cron: "0 */6 * * *"
+  workflow_dispatch:
+
+jobs:
+  resume-neo4j:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check and resume Neo4j Aura
+        env:
+          AURA_CLIENT_ID: ${{ secrets.AURA_CLIENT_ID }}
+          AURA_CLIENT_SECRET: ${{ secrets.AURA_CLIENT_SECRET }}
+          AURA_INSTANCE_ID: ${{ secrets.AURA_INSTANCE_ID }}
+        run: |
+          python3 - <<'PY'
+          import os
+          import requests
+
+          base = "https://api.neo4j.io"
+          instance_id = os.environ["AURA_INSTANCE_ID"]
+
+          auth = requests.post(
+              f"{base}/oauth/token",
+              auth=(
+                  os.environ["AURA_CLIENT_ID"],
+                  os.environ["AURA_CLIENT_SECRET"]
+              ),
+              data={"grant_type": "client_credentials"},
+              timeout=30
+          )
+          auth.raise_for_status()
+
+          token = auth.json()["access_token"]
+          headers = {"Authorization": f"Bearer {token}"}
+
+          response = requests.get(
+              f"{base}/v1/instances/{instance_id}",
+              headers=headers,
+              timeout=30
+          )
+          response.raise_for_status()
+
+          status = response.json()["data"]["status"]
+          print(f"Neo4j status: {status}")
+
+          if status.lower() == "paused":
+              print("Resuming Neo4j...")
+              result = requests.post(
+                  f"{base}/v1/instances/{instance_id}/resume",
+                  headers=headers,
+                  timeout=30
+              )
+              result.raise_for_status()
+              print("Resume request accepted.")
+          else:
+              print("No resume action needed.")
+          PY
