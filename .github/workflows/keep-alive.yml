@@ -1,105 +1,28 @@
 name: Keep ThreatGraph Services Active
 
 on:
-  schedule:
-    # Every 6 hours
-    - cron: "0 */6 * * *"
-
-  # Allows manual testing from GitHub Actions
   workflow_dispatch:
 
 jobs:
-  keep-alive:
+  test-streamlit:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Ping Streamlit app
-        run: |
-          echo "Pinging Streamlit..."
-          curl -L \
-            --connect-timeout 20 \
-            --max-time 60 \
-            --retry 2 \
-            "${{ secrets.STREAMLIT_APP_URL }}" \
-            -o /dev/null
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install Neo4j driver
-        run: |
-          pip install neo4j
-
-      - name: Check AuraDB and generate activity
-        id: aura_check
-        continue-on-error: true
+      - name: Test Streamlit URL
         env:
-          NEO4J_URI: ${{ secrets.NEO4J_URI }}
-          NEO4J_USERNAME: ${{ secrets.NEO4J_USERNAME }}
-          NEO4J_PASSWORD: ${{ secrets.NEO4J_PASSWORD }}
-          NEO4J_DATABASE: ${{ secrets.NEO4J_DATABASE }}
+          STREAMLIT_APP_URL: ${{ secrets.STREAMLIT_APP_URL }}
         run: |
-          python - <<'PY'
-          import os
-          from neo4j import GraphDatabase
+          echo "Testing Streamlit URL..."
 
-          driver = GraphDatabase.driver(
-              os.environ["NEO4J_URI"],
-              auth=(
-                  os.environ["NEO4J_USERNAME"],
-                  os.environ["NEO4J_PASSWORD"],
-              ),
-          )
-
-          with driver.session(
-              database=os.environ.get(
-                  "NEO4J_DATABASE",
-                  "neo4j",
-              )
-          ) as session:
-              result = session.run(
-                  "RETURN 1 AS health"
-              ).single()
-
-              print(
-                  "AuraDB health check:",
-                  result["health"],
-              )
-
-          driver.close()
-          PY
-
-      - name: Resume AuraDB if health check failed
-        if: steps.aura_check.outcome == 'failure'
-        env:
-          AURA_CLIENT_ID: ${{ secrets.AURA_CLIENT_ID }}
-          AURA_CLIENT_SECRET: ${{ secrets.AURA_CLIENT_SECRET }}
-          AURA_INSTANCE_ID: ${{ secrets.AURA_INSTANCE_ID }}
-        run: |
-          echo "AuraDB unavailable. Attempting resume..."
-
-          TOKEN=$(
-            curl --silent \
-              --fail \
-              --request POST \
-              "https://api.neo4j.io/oauth/token" \
-              --user \
-              "${AURA_CLIENT_ID}:${AURA_CLIENT_SECRET}" \
-              --header \
-              "Content-Type: application/x-www-form-urlencoded" \
-              --data-urlencode \
-              "grant_type=client_credentials" \
-            | python -c \
-              "import sys,json; print(json.load(sys.stdin)['access_token'])"
-          )
+          if [ -z "$STREAMLIT_APP_URL" ]; then
+            echo "STREAMLIT_APP_URL secret is empty or missing."
+            exit 1
+          fi
 
           curl \
-            --fail \
-            --request POST \
-            "https://api.neo4j.io/v1/instances/${AURA_INSTANCE_ID}/resume" \
-            --header \
-            "Authorization: Bearer ${TOKEN}"
-
-          echo "AuraDB resume requested."
+            -L \
+            --connect-timeout 20 \
+            --max-time 60 \
+            "$STREAMLIT_APP_URL" \
+            -o /dev/null \
+            -w "HTTP status: %{http_code}\n"
