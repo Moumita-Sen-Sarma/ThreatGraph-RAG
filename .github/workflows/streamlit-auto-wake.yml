@@ -1,3 +1,4 @@
+
 name: Streamlit Auto Wake
 
 on:
@@ -16,13 +17,12 @@ jobs:
           pip install playwright
           python -m playwright install --with-deps chromium
 
-      - name: Visit and verify Streamlit app
+      - name: Diagnose Streamlit page
         env:
           STREAMLIT_APP_URL: ${{ secrets.STREAMLIT_APP_URL }}
         run: |
           python - <<'PY'
           import os
-          import time
           from playwright.sync_api import sync_playwright
 
           url = os.environ["STREAMLIT_APP_URL"]
@@ -32,45 +32,33 @@ jobs:
               page = browser.new_page()
 
               try:
-                  for attempt in range(1, 4):
-                      print(f"Attempt {attempt}/3")
+                  response = page.goto(
+                      url,
+                      wait_until="domcontentloaded",
+                      timeout=60000
+                  )
 
-                      page.goto(
-                          url,
-                          wait_until="domcontentloaded",
-                          timeout=60000
-                      )
+                  page.wait_for_timeout(10000)
 
-                      wake_button = page.get_by_role(
-                          "button",
-                          name="Yes, get this app back up!"
-                      )
+                  print("HTTP status:",
+                        response.status if response else "N/A")
+                  print("Page title:", page.title())
+                  print("Current URL:", page.url)
 
-                      if wake_button.count() > 0:
-                          print("Sleeping app detected.")
-                          wake_button.first.click()
-                          print("Wake-up button clicked.")
+                  print("Streamlit containers:",
+                        page.locator(
+                            '[data-testid="stAppViewContainer"]'
+                        ).count())
 
-                      try:
-                          page.locator(
-                              '[data-testid="stAppViewContainer"]'
-                          ).wait_for(timeout=60000)
+                  print("Frames:", len(page.frames))
 
-                          print(
-                              "Streamlit application container detected!"
-                          )
-                          print("Current URL:", page.url)
-                          break
+                  print("Visible buttons:")
+                  for button in page.get_by_role("button").all()[:10]:
+                      print("-", button.inner_text()[:100])
 
-                      except Exception:
-                          print("Application not ready.")
+                  print("Body text (first 1000 chars):")
+                  print(page.locator("body").inner_text()[:1000])
 
-                          if attempt == 3:
-                              raise RuntimeError(
-                                  "Streamlit app failed to load."
-                              )
-
-                          time.sleep(10)
               finally:
                   browser.close()
           PY
